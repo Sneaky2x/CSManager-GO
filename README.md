@@ -17,11 +17,12 @@ cd CSManager-GO
 ```
 4. **Build the Game**: Compile the game using Go.
 ```bash
-go build
+go build csmanager-cli.go 
 ```
 5. **Run the Game**: Start the game by running the executable.
 ```bash
-./CSManager-GO
+./csmanager-cli #Linux/Mac
+csmanager-cli.exe #Windows
 ```
 
 ## Features
