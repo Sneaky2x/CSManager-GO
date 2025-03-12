@@ -2,6 +2,8 @@
 
 CSManager GO is a text-based simulation game where you manage a Counter-Strike team. Train your players, compete in leagues and tournaments, manage finances, and make strategic transfers to lead your team to victory.
 
+![1000027257](https://github.com/user-attachments/assets/98887c66-d026-47ac-ad10-ecc992f82f84)
+
 ## Installation
 
 To get started with CSManager GO, follow these steps:
