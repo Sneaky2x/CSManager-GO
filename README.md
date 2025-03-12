@@ -9,7 +9,7 @@ To get started with CSManager GO, follow these steps:
 1. **Install Go**: If you don't have Go installed, download and install it from [golang.org](https://golang.org/dl/).
 2. **Clone the Repository**: Clone this repository to your local machine.
 ```bash
-git clone https://github.com/sneaky2x/CSManager-GO.git
+git clone https://github.com/Sneaky2x/CSManager-GO.git
 ```
 3. **Navigate to the Directory**: Change to the project directory.
 ```bash
