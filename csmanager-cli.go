@@ -1,8 +1,12 @@
 package main
 
 import (
+    "crypto/sha1"
+    "encoding/json"
     "fmt"
     "math/rand"
+    "os"
+    "path/filepath"
     "sort"
     "strconv"
     "strings"
@@ -20,6 +24,7 @@ type AIActivity struct {
 
 // Global variables
 var aiActivityLog []AIActivity
+var saveDir string
 
 // Player struct
 type Player struct {
@@ -44,7 +49,6 @@ type Team struct {
 
 // ### Player Functions
 
-// NewPlayer creates a new player with random attributes
 func NewPlayer() *Player {
     names := []string{"Jake", "Liam", "Noah", "Ethan", "Mason", "Logan", "Lucas", "Aiden", "Caleb", "Owen"}
     name := fmt.Sprintf("%s%d", names[rand.Intn(len(names))], rand.Intn(100))
@@ -64,7 +68,6 @@ func NewPlayer() *Player {
     return player
 }
 
-// updateAvgSkill calculates the player's average skill
 func (p *Player) updateAvgSkill() {
     total := 0
     for _, skill := range p.Skills {
@@ -73,7 +76,6 @@ func (p *Player) updateAvgSkill() {
     p.AvgSkill = total / len(p.Skills)
 }
 
-// Bootcamp improves player skills up to their potential
 func (p *Player) Bootcamp() {
     for skill := range p.Skills {
         increase := rand.Intn(5) + 1 // 1-5 improvement
@@ -82,7 +84,6 @@ func (p *Player) Bootcamp() {
     p.updateAvgSkill()
 }
 
-// ImproveAfterGame gives a chance to improve skills post-match
 func (p *Player) ImproveAfterGame() {
     for skill, value := range p.Skills {
         if value < p.Potential && rand.Intn(100) < (p.Potential-p.AvgSkill)/2 {
@@ -92,7 +93,6 @@ func (p *Player) ImproveAfterGame() {
     p.updateAvgSkill()
 }
 
-// Decay reduces skills based on games played
 func (p *Player) Decay() {
     var decayAmount int
     switch {
@@ -113,7 +113,6 @@ func (p *Player) Decay() {
 
 // ### Team Functions
 
-// NewTeam creates a new team
 func NewTeam(name string, players []*Player, money int) *Team {
     return &Team{
         Name:    name,
@@ -122,7 +121,6 @@ func NewTeam(name string, players []*Player, money int) *Team {
     }
 }
 
-// AvgSkill calculates the team’s average skill
 func (t *Team) AvgSkill() int {
     total := 0
     for _, player := range t.Players {
@@ -152,6 +150,186 @@ func input(prompt string) string {
     var response string
     fmt.Scanln(&response)
     return strings.TrimSpace(response)
+}
+
+func hashTeamName(name string) string {
+    h := sha1.New()
+    h.Write([]byte(name))
+    hash := fmt.Sprintf("%x", h.Sum(nil))
+    return hash[:8]
+}
+
+// ### Save/Load Functions
+
+type GameState struct {
+    TeamName     string
+    TeamNameHash string
+    Date         string
+}
+
+func saveGame(team *Team, opponents []*Team, marketPlayers []*Player) {
+    if saveDir == "" {
+        return
+    }
+    // Ensure save directory exists
+    if err := os.MkdirAll(saveDir, 0755); err != nil {
+        fmt.Println("Failed to create save directory:", err)
+        return
+    }
+
+    // Save gamestate.json
+    gamestate := GameState{
+        TeamName:     team.Name,
+        TeamNameHash: hashTeamName(team.Name),
+        Date:         time.Now().Format("20060102"),
+    }
+    data, _ := json.MarshalIndent(gamestate, "", "  ")
+    os.WriteFile(filepath.Join(saveDir, "gamestate.json"), data, 0644)
+
+    // Save team.json
+    data, _ = json.MarshalIndent(team, "", "  ")
+    os.WriteFile(filepath.Join(saveDir, "team.json"), data, 0644)
+
+    // Save opponents.json
+    data, _ = json.MarshalIndent(opponents, "", "  ")
+    os.WriteFile(filepath.Join(saveDir, "opponents.json"), data, 0644)
+
+    // Save market.json
+    data, _ = json.MarshalIndent(marketPlayers, "", "  ")
+    os.WriteFile(filepath.Join(saveDir, "market.json"), data, 0644)
+
+    // Save activity.json
+    data, _ = json.MarshalIndent(aiActivityLog, "", "  ")
+    os.WriteFile(filepath.Join(saveDir, "activity.json"), data, 0644)
+}
+
+func loadGame(saveFolder string) (*Team, []*Team, []*Player, error) {
+    saveDir = filepath.Join("saves", saveFolder)
+
+    // Load gamestate.json
+    gamestateData, err := os.ReadFile(filepath.Join(saveDir, "gamestate.json"))
+    if err != nil {
+        return nil, nil, nil, err
+    }
+    var gamestate GameState
+    if err := json.Unmarshal(gamestateData, &gamestate); err != nil {
+        return nil, nil, nil, err
+    }
+
+    // Load team.json
+    teamData, err := os.ReadFile(filepath.Join(saveDir, "team.json"))
+    if err != nil {
+        return nil, nil, nil, err
+    }
+    var team Team
+    if err := json.Unmarshal(teamData, &team); err != nil {
+        return nil, nil, nil, err
+    }
+
+    // Load opponents.json
+    opponentsData, err := os.ReadFile(filepath.Join(saveDir, "opponents.json"))
+    if err != nil {
+        return nil, nil, nil, err
+    }
+    var opponents []*Team
+    if err := json.Unmarshal(opponentsData, &opponents); err != nil {
+        return nil, nil, nil, err
+    }
+
+    // Load market.json
+    marketData, err := os.ReadFile(filepath.Join(saveDir, "market.json"))
+    if err != nil {
+        return nil, nil, nil, err
+    }
+    var marketPlayers []*Player
+    if err := json.Unmarshal(marketData, &marketPlayers); err != nil {
+        return nil, nil, nil, err
+    }
+
+    // Load activity.json
+    activityData, err := os.ReadFile(filepath.Join(saveDir, "activity.json"))
+    if err != nil {
+        return nil, nil, nil, err
+    }
+    if err := json.Unmarshal(activityData, &aiActivityLog); err != nil {
+        return nil, nil, nil, err
+    }
+
+    return &team, opponents, marketPlayers, nil
+}
+
+func selectSaveGame() (string, bool) {
+    if _, err := os.Stat("saves"); os.IsNotExist(err) {
+        return "", false
+    }
+
+    saves, err := os.ReadDir("saves")
+    if err != nil || len(saves) == 0 {
+        return "", false
+    }
+
+    fmt.Println("\nSelect Save Game:")
+    for i, save := range saves {
+        if !save.IsDir() {
+            continue
+        }
+        gamestateData, err := os.ReadFile(filepath.Join("saves", save.Name(), "gamestate.json"))
+        if err != nil {
+            continue
+        }
+        var gamestate GameState
+        if err := json.Unmarshal(gamestateData, &gamestate); err != nil {
+            continue
+        }
+        fmt.Printf("%d. %s (%s)\n", i+1, gamestate.TeamName, gamestate.Date)
+    }
+
+    choice := input("Enter save number (or 'new' for new game): ")
+    if choice == "new" {
+        return "", false
+    }
+
+    num, err := strconv.Atoi(choice)
+    if err != nil || num < 1 || num > len(saves) {
+        fmt.Println("Invalid choice, starting new game.")
+        return "", false
+    }
+
+    for i, save := range saves {
+        if i+1 == num {
+            return save.Name(), true
+        }
+    }
+    return "", false
+}
+
+func initializeNewGame() (*Team, []*Team, []*Player) {
+    teamName := input("Enter your team name: ")
+    saveDir = filepath.Join("saves", fmt.Sprintf("%s_%s", time.Now().Format("20060102"), hashTeamName(teamName)))
+    os.MkdirAll(saveDir, 0755)
+
+    players := make([]*Player, 5)
+    for i := range players {
+        players[i] = NewPlayer()
+    }
+    team := NewTeam(teamName, players, 5000)
+
+    teamNames := []string{"ThunderHub", "BlazeSquad", "IceWolves", "ShadowPeak", "SteelVipers"}
+    opponents := make([]*Team, 5)
+    for i := range opponents {
+        oppPlayers := make([]*Player, 5)
+        for j := range oppPlayers {
+            oppPlayers[j] = NewPlayer()
+        }
+        opponents[i] = NewTeam(teamNames[i], oppPlayers, 1000+rand.Intn(2000))
+    }
+
+    marketPlayers := make([]*Player, 10)
+    for i := range marketPlayers {
+        marketPlayers[i] = NewPlayer()
+    }
+
+    return team, opponents, marketPlayers
 }
 
 // ### Game Functions
@@ -219,13 +397,12 @@ func playLeagueMatch(team *Team, opponents []*Team, marketPlayers *[]*Player) {
         opponent.Draws++
         opponent.Points++
     }
-    // Simulate AI matches and give income
     simulateLeagueRound(opponents)
     for _, opp := range opponents {
-        opp.Money += 500 // Income per match cycle
+        opp.Money += 500
         aiTransferDecision(opp, marketPlayers)
     }
-    team.Money += 500 // Player team income
+    team.Money += 500
 }
 
 func simulateLeagueMatch(team1, team2 *Team) *Team {
@@ -295,10 +472,9 @@ func simulateLeagueRound(opponents []*Team) {
 }
 
 func aiTransferDecision(team *Team, marketPlayers *[]*Player) {
-    if rand.Intn(10) < 7 { // 70% chance
+    if rand.Intn(10) < 7 {
         market := *marketPlayers
         if team.Money < 1000 && len(team.Players) > 0 {
-            // Sell best player
             bestIdx := 0
             for i, p := range team.Players {
                 if p.AvgSkill > team.Players[bestIdx].AvgSkill {
@@ -318,7 +494,6 @@ func aiTransferDecision(team *Team, marketPlayers *[]*Player) {
                 Amount:    price,
             })
         } else if team.Money > 3000 && len(market) > 0 {
-            // Buy better player
             worstIdx := 0
             for i, p := range team.Players {
                 if p.AvgSkill < team.Players[worstIdx].AvgSkill {
@@ -503,27 +678,23 @@ func viewTrophyRanking(team *Team, opponents []*Team) {
 
 func main() {
     rand.Seed(time.Now().UnixNano())
-    fmt.Println("Welcome to Counter-Strike Manager GO!")
-    teamName := input("Enter your team name: ")
-    players := make([]*Player, 5)
-    for i := range players {
-        players[i] = NewPlayer()
-    }
-    team := NewTeam(teamName, players, 5000)
+    fmt.Println("Welcome to Counter-Strike Manager!")
 
-    teamNames := []string{"ThunderHub", "BlazeSquad", "IceWolves", "ShadowPeak", "SteelVipers"}
-    opponents := make([]*Team, 5)
-    for i := range opponents {
-        oppPlayers := make([]*Player, 5)
-        for j := range oppPlayers {
-            oppPlayers[j] = NewPlayer()
+    var team *Team
+    var opponents []*Team
+    var marketPlayers []*Player
+
+    // Check for existing saves
+    saveFolder, hasSaves := selectSaveGame()
+    if hasSaves {
+        var err error
+        team, opponents, marketPlayers, err = loadGame(saveFolder)
+        if err != nil {
+            fmt.Println("Failed to load save game:", err)
+            team, opponents, marketPlayers = initializeNewGame()
         }
-        opponents[i] = NewTeam(teamNames[i], oppPlayers, 1000+rand.Intn(2000))
-    }
-
-    marketPlayers := make([]*Player, 10)
-    for i := range marketPlayers {
-        marketPlayers[i] = NewPlayer()
+    } else {
+        team, opponents, marketPlayers = initializeNewGame()
     }
 
     for {
@@ -564,10 +735,12 @@ func main() {
         case "9":
             viewTrophyRanking(team, opponents)
         case "10":
-            fmt.Println("Thanks for playing, boss!")
+            saveGame(team, opponents, marketPlayers)
+            fmt.Println("Game saved. Thanks for playing, boss!")
             return
         default:
             fmt.Println("Invalid choice, try again.")
         }
+        saveGame(team, opponents, marketPlayers)
     }
 }
