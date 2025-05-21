@@ -26,6 +26,8 @@ type AIActivity struct {
 var aiActivityLog []AIActivity
 var saveDir string
 
+const maxAiActivityLogSize = 100
+
 // Player struct
 type Player struct {
     Name        string
@@ -493,6 +495,9 @@ func aiTransferDecision(team *Team, marketPlayers *[]*Player) {
                 Potential: player.Potential,
                 Amount:    price,
             })
+            if len(aiActivityLog) > maxAiActivityLogSize {
+                aiActivityLog = aiActivityLog[len(aiActivityLog)-maxAiActivityLogSize:]
+            }
         } else if team.Money > 3000 && len(market) > 0 {
             worstIdx := 0
             for i, p := range team.Players {
@@ -514,6 +519,9 @@ func aiTransferDecision(team *Team, marketPlayers *[]*Player) {
                         Potential: p.Potential,
                         Amount:    price,
                     })
+                    if len(aiActivityLog) > maxAiActivityLogSize {
+                        aiActivityLog = aiActivityLog[len(aiActivityLog)-maxAiActivityLogSize:]
+                    }
                     break
                 }
             }
@@ -722,10 +730,13 @@ func main() {
             if len(marketPlayers) > 15 {
                 marketPlayers = marketPlayers[len(marketPlayers)-15:]
             }
+            saveGame(team, opponents, marketPlayers)
         case "4":
             enterTournament(team, opponents)
+            saveGame(team, opponents, marketPlayers)
         case "5":
             visitTransferMarket(team, &marketPlayers)
+            saveGame(team, opponents, marketPlayers)
         case "6":
             checkFinances(team)
         case "7":
@@ -741,6 +752,6 @@ func main() {
         default:
             fmt.Println("Invalid choice, try again.")
         }
-        saveGame(team, opponents, marketPlayers)
+        // saveGame(team, opponents, marketPlayers) // Removed general save from here
     }
 }
