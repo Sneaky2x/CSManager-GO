@@ -45,7 +45,7 @@ CSManager GO includes the following features to enhance your experience:
 - **Enhanced Financial Management**: Detailed economy with entry fees, prize money, regular match earnings ($500), and skill-based player pricing.
 
 ### Advanced Features
-- **Player Statistics Tracking**: Each player's games played counter affects skill decay rates - more experienced players decay differently.
+- **Player Statistics Tracking**: Each player's games played counter affects skill decay rates - more experienced players decay slower, reflecting their ability to maintain skills over time.
 - **Market Refresh System**: New players automatically added to transfer market after league matches, with market size capped at 15 players.
 - **Comprehensive Menu System**: 10 different gameplay options including team management, training, competitions, market access, financial tracking, standings, and activity monitoring.
 
